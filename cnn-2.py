@@ -1,7 +1,7 @@
 from tensorflow.examples.tutorials.mnist import input_data
-
+from datetime import timedelta
 import tensorflow as tf
-
+from timeit import default_timer as timer
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -141,14 +141,21 @@ def run_model(l_rate, epoch, hparam_str, batch_size):
                             keep_prob: 1.0})
         print('Testing Accuracy: {}'.format(test_acc))
 
-for batch_size in batch_sizes:   
+
+start_time = timer()
+for batch_size in batch_sizes:
+    batch_time = timer()   
     for epoch in epochs:
+        epoch_time = timer()
         for l_rate in learning_rates:
             hparam_str = make_hparam_str(l_rate, epoch, batch_size)
             print(hparam_str)
             run_model(l_rate, epoch, hparam_str, batch_size)
+        print("epoch time: ", timedelta(seconds=(timer() - epoch_time)))
+    print("batch time: ", timedelta(seconds=(timer() - batch_time)))
 
 
+print("total time: ", timedelta(seconds=(timer() - start_time)))
 print("Run the command line:\n" \
       "--> tensorboard --logdir=./tests/cnn1/ " \
       "\nThen open http://0.0.0.0:6006/ into your web browser")

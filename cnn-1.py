@@ -6,6 +6,9 @@ import tensorflow as tf
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
+from timeit import default_timer as timer
+from datetime import timedelta
+
 learning_rate = 0.001
 epochs = 3
 batch_size = 128
@@ -105,19 +108,22 @@ merged = tf.summary.merge_all()
 
 with tf.Session() as sess:
     sess.run(init)
-    
+    start_time = timer()
+
 #    train_tb = tf.summary.FileWriter('./logs/cnn-1', graph=tf.get_default_graph())
     train_tb = tf.summary.FileWriter('./logs/cnn-1')
     train_tb.add_graph(sess.graph)
 #    print(mnist.train.num_examples//batch_size)
     for epoch in range(epochs):
         total_batch = int(mnist.train.num_examples/batch_size)
+        epoch_time = timer()
         for batch in range(total_batch):
             batch_x, batch_y = mnist.train.next_batch(batch_size) 
             _, summary = sess.run([optimizer, merged], feed_dict={x: batch_x, y: batch_y, keep_prob: dropout}) 
             step += 1 
             train_tb.add_summary(summary, step)
             if (batch + 1) % display_step == 0 or batch == 0:
+#                print("epoch time: ", timedelta(seconds=(timer() - epoch_time)))
                 loss = sess.run(cost, feed_dict={x: batch_x, y: batch_y, keep_prob: 1.0}) 
                 valid_acc = sess.run(accuracy, feed_dict={
                         x: mnist.validation.images[:test_valid_size], 
@@ -125,13 +131,13 @@ with tf.Session() as sess:
                         keep_prob: 1.0}) 
                 print('Epoch {:>2}, Batch {:>3}, Step {:>5} - Loss: {:>10.4f}'
                   ' Validation Accuracy: {:.6f}'.format(epoch + 1, batch + 1, step , loss, valid_acc))
-
+        print("epoch time: ", timedelta(seconds=(timer() - epoch_time)))
     test_acc = sess.run(accuracy, feed_dict={
                         x: mnist.test.images[:test_valid_size],
                         y: mnist.test.labels[:test_valid_size],
                         keep_prob: 1.0})
     print('Testing Accuracy: {}'.format(test_acc))
-
+    print("total time: ", timedelta(seconds=(timer() - start_time)))
     print("Run the command line:\n" \
           "--> tensorboard --logdir=./logs/cnn-1 " \
           "\nThen open http://0.0.0.0:6006/ into your web browser")
