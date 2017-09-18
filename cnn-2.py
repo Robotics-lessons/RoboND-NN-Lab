@@ -2,13 +2,17 @@ from tensorflow.examples.tutorials.mnist import input_data
 from datetime import timedelta
 import tensorflow as tf
 from timeit import default_timer as timer
+import numpy as np
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 mnist = input_data.read_data_sets(".", one_hot=True, reshape=False)
-learning_rates = [0.001, 0.0001, 0.00001]
-epochs = [1, 2, 4]
-batch_sizes = [128, 256]
+learning_rates = [0.01, 0.001, 0.0001, 0.00001] #, 0.000001]
+epochs = [2, 4, 6, 8]
+batch_sizes = [64, 128, 256]
+#batch_sizes = [64, 128]
+
+results = np.zeros(shape=[len(batch_sizes), len(learning_rates), len(epochs)])
 
 test_valid_size = 256
 
@@ -32,7 +36,7 @@ biases = {
 def conv2d(x, W, b, strides=1, name='Conv1'):
     with tf.name_scope(name):
         x = tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='SAME')
-    	x = tf.nn.bias_add(x, b)
+        x = tf.nn.bias_add(x, b)
     return tf.nn.relu(x)
 
 def maxpool2d(x, k=2, name='Maxpool1'):
@@ -119,7 +123,9 @@ def run_model(l_rate, epoch, hparam_str, batch_size):
         train_tb = tf.summary.FileWriter('./tests/cnn1/' + hparam_str)
         train_tb.add_graph(sess.graph)
     #    print(mnist.train.num_examples//batch_size)
+
         for epoch in range(epoch):
+            epoch_time = timer()
             total_batch = int(mnist.train.num_examples/batch_size)
             for batch in range(total_batch):
                 batch_x, batch_y = mnist.train.next_batch(batch_size)
@@ -132,29 +138,56 @@ def run_model(l_rate, epoch, hparam_str, batch_size):
                             x: mnist.validation.images[:test_valid_size], 
                             y: mnist.validation.labels[:test_valid_size], 
                             keep_prob: 1.0}) 
-                    print('Epoch {:>2}, Batch {:>3}, Step {:>5} - Loss: {:>10.4f}'
+                    print('Epoch {:>2}, Batch {:>3}, Step {:>5} - Loss: {:>10.6f}'
                       ' Validation Accuracy: {:.6f}'.format(epoch + 1, batch + 1, step , loss, valid_acc))
-    
+            print("epoch time: ", timedelta(seconds=(timer() - epoch_time)))
+
         test_acc = sess.run(accuracy, feed_dict={
                             x: mnist.test.images[:test_valid_size],
                             y: mnist.test.labels[:test_valid_size],
                             keep_prob: 1.0})
         print('Testing Accuracy: {}'.format(test_acc))
+        print()
+    return test_acc        
 
+def print_result():
+    for i in range(len(batch_sizes)):
+        print("======================================================================")
+        print("Batch Size: {}".format(batch_sizes[i]))
+        print("                      ", sep=' ', end='', flush=True)
+        for k in range(len(epochs)):
+            print(" Ecpoch: {}  ".format(epochs[k]), sep=' ', end='', flush=True)
+        print(" Average ")  
+        print("----------------------------------------------------------------------")  
+        for j in range(len(learning_rates)):
+        
+            print("Learn Rate: {:6f}   ".format(learning_rates[j]), sep=' ', end='', flush=True)
+            for k in range(len(epochs)):
+                print(" {:2.4f}     ".format(results[i, j, k]), sep=' ', end='', flush=True)
+            print(" {:2.4f}     ".format(sum(results[i, j, 0:])/len(learning_rates)))
+
+
+# print_result()
+# exit()
 
 start_time = timer()
+i = 0
 for batch_size in batch_sizes:
-    batch_time = timer()   
+    k = 0   
     for epoch in epochs:
-        epoch_time = timer()
+        j = 0
         for l_rate in learning_rates:
             hparam_str = make_hparam_str(l_rate, epoch, batch_size)
             print(hparam_str)
-            run_model(l_rate, epoch, hparam_str, batch_size)
-        print("epoch time: ", timedelta(seconds=(timer() - epoch_time)))
-    print("batch time: ", timedelta(seconds=(timer() - batch_time)))
+            results[i, j, k] = run_model(l_rate, epoch, hparam_str, batch_size)
+            j += 1
+        k += 1
+    i += 1
 
 
+print("total time: ", timedelta(seconds=(timer() - start_time)))
+print_result()
+print()
 print("total time: ", timedelta(seconds=(timer() - start_time)))
 print("Run the command line:\n" \
       "--> tensorboard --logdir=./tests/cnn1/ " \

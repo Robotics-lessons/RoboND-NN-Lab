@@ -9,8 +9,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 from timeit import default_timer as timer
 from datetime import timedelta
 
-learning_rate = 0.001
-epochs = 3
+learning_rate = 0.0001
+epochs = 4
 batch_size = 128
 
 test_valid_size = 256
