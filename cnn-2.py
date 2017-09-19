@@ -17,7 +17,7 @@ results = np.zeros(shape=[len(batch_sizes), len(learning_rates), len(epochs)])
 test_valid_size = 256
 
 n_classes = 10
-dropout = 0.75
+dropouts = [0.75, 0.5]
 display_step = 100
 
 weights = {
@@ -62,8 +62,8 @@ def conv_net(x, weights, biases, dropout):
     out = tf.add(tf.matmul(fc1, weights['out']), biases['out'])
     return out
 
-def make_hparam_str(l_rate, epoch, batch_size):
-    return str(l_rate) + "," + str(epoch) + "," + str(batch_size)
+def make_hparam_str(l_rate, epoch, batch_size, dropout):
+    return str(l_rate) + "," + str(epoch) + "," + str(batch_size) + "," + str(dropout)
 
 x = tf.placeholder(tf.float32, [None, 28, 28, 1], name='inputData')
 y = tf.placeholder(tf.float32, [None, n_classes], name='inputLabels')
@@ -113,7 +113,7 @@ init = tf.global_variables_initializer()
 
 merged = tf.summary.merge_all()
 
-def run_model(l_rate, epoch, hparam_str, batch_size):    
+def run_model(l_rate, epoch, hparam_str, batch_size, dropout):    
     step = 0
     
     with tf.Session() as sess:
@@ -150,7 +150,8 @@ def run_model(l_rate, epoch, hparam_str, batch_size):
         print()
     return test_acc        
 
-def print_result():
+def print_result(dropout):
+    print("Dropout: ", dropout)
     for i in range(len(batch_sizes)):
         print("======================================================================")
         print("Batch Size: {}".format(batch_sizes[i]))
@@ -164,31 +165,37 @@ def print_result():
             print("Learn Rate: {:6f}   ".format(learning_rates[j]), sep=' ', end='', flush=True)
             for k in range(len(epochs)):
                 print(" {:2.4f}     ".format(results[i, j, k]), sep=' ', end='', flush=True)
-            print(" {:2.4f}     ".format(sum(results[i, j, 0:])/len(learning_rates)))
+            print(" {:2.4f}     ".format(sum(results[i, j, 0:])/len(epochs)))
+        print("Average:               ", sep=' ', end='', flush=True)
+        for k in range(len(epochs)):
+            print(" {:2.4f}     ".format(sum(results[i, 0:, k])/len(learning_rates)), sep=' ', end='', flush=True)
+        print()
 
 
-# print_result()
-# exit()
+#print_result()
+#exit()
 
 start_time = timer()
-i = 0
-for batch_size in batch_sizes:
-    k = 0   
-    for epoch in epochs:
-        j = 0
-        for l_rate in learning_rates:
-            hparam_str = make_hparam_str(l_rate, epoch, batch_size)
-            print(hparam_str)
-            results[i, j, k] = run_model(l_rate, epoch, hparam_str, batch_size)
+
+for dropout in dropouts:
+    i = 0
+    for batch_size in batch_sizes:
+        k = 0   
+        for epoch in epochs:
+            j = 0
+            for l_rate in learning_rates:
+                hparam_str = make_hparam_str(l_rate, epoch, batch_size, dropout)
+                print(hparam_str)
+                results[i, j, k] = run_model(l_rate, epoch, hparam_str, batch_size, dropout)
             j += 1
-        k += 1
-    i += 1
+            k += 1
+        i += 1
+    print("total time: ", timedelta(seconds=(timer() - start_time)))
+    print_result(dropout)
+    print()
+    print("total time: ", timedelta(seconds=(timer() - start_time)))
 
 
-print("total time: ", timedelta(seconds=(timer() - start_time)))
-print_result()
-print()
-print("total time: ", timedelta(seconds=(timer() - start_time)))
 print("Run the command line:\n" \
       "--> tensorboard --logdir=./tests/cnn1/ " \
       "\nThen open http://0.0.0.0:6006/ into your web browser")
