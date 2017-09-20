@@ -1,23 +1,32 @@
+# %matplotlib inline
+import matplotlib.pyplot as plt
+
 from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets(".", one_hot=True, reshape=False)
-
 import tensorflow as tf
-
+import numpy as np
+import math
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
 from timeit import default_timer as timer
 from datetime import timedelta
 
-learning_rate = 0.0001
+mnist = input_data.read_data_sets(".", one_hot=True, reshape=False)
+
+learning_rate = 0.001
 epochs = 4
 batch_size = 128
 
 test_valid_size = 256
 
 n_classes = 10
-dropout = 0.75
+dropout = 0.5
 display_step = 100
+
+
+
+cls_trues = np.array([label.argmax() for label in mnist.test.labels])
+
 
 weights = {
     'wc1': tf.Variable(tf.random_normal([5, 5, 1, 32]), name='Wc1'),
@@ -60,14 +69,84 @@ def conv_net(x, weights, biases, dropout):
     out = tf.add(tf.matmul(fc1, weights['out']), biases['out'])
     return out
 
+def plot_images(images, cls_true, cls_pred=None):
+#    print(len(images))
+#    print(len(cls_true))
+#    assert(len(images) == len(cls_true) == 9)
+    k = 0
+    err_no = len(images)  
+    d =   err_no ** 0.5
+    # Create figure with 3x3 sub-plots.
+    fig, axes = plt.subplots(math.ceil(d), math.floor(d))
+    fig.subplots_adjust(hspace=0.3, wspace=0.3)
+ 
+    for i, ax in enumerate(axes.flat):
+        # Plot image.
+        ax.imshow(images[i].reshape((28, 28)), cmap='binary')
+
+        # Show true and predicted classes.
+        if cls_pred is None:
+            xlabel = "True: {0}".format(cls_true[i])
+        else:
+            xlabel = "True: {0}, Pred: {1}".format(cls_true[i], cls_pred[i])
+
+        ax.set_xlabel(xlabel)
+        
+        # Remove ticks from the plot.
+        ax.set_xticks([])
+        ax.set_yticks([])
+        k += 1
+        if k >= err_no:
+            break
+
+    plt.show()
+
+def plot_example_errors(session):
+    # Use TensorFlow to get a list of boolean values
+    # whether each test-image has been correctly classified,
+    # and a list for the predicted class of each image.
+    correct, cls_pred = session.run([correct_pred, y_pred_cls],
+                                    feed_dict={
+                        x: mnist.test.images[:test_valid_size],
+                        y: mnist.test.labels[:test_valid_size], keep_prob: 1.0})
+
+    # Negate the boolean array.
+    incorrect = (correct == False)
+#    print("Error number {}".format(len(incorrect)))  
+#    print(incorrect)
+#    incorrect = incorrect[0:test_valid_size]  
+    # Get the images from the test-set that have been
+    # incorrectly classified.
+    err_images = mnist.test.images[:test_valid_size]
+    images_f = err_images[incorrect]
+    
+    # Get the predicted classes for those images.
+    cls_pred = cls_pred[incorrect]
+    cls_true_1 = cls_trues[:test_valid_size]
+    cls_true = cls_true_1[incorrect]
+    # Get the true classes for those images.
+    err_number = len(cls_pred)
+    print("Error number {}".format(err_number))
+#    print("cls_true {}".format(cls_true))
+
+    # Plot the first 9 images.
+    plot_images(images=images_f[0:err_number],
+                cls_true=cls_true[0:err_number],
+                cls_pred=cls_pred[0:err_number])
+
+
+
 x = tf.placeholder(tf.float32, [None, 28, 28,1], name='inputData')
 y = tf.placeholder(tf.float32, [None, n_classes], name='inputLabels')
 keep_prob = tf.placeholder(tf.float32, name='dropout')
 
 logits = conv_net(x, weights, biases, keep_prob)
+
+
     
 with tf.name_scope('Model'):
     prediction = tf.nn.softmax(logits)
+    y_pred_cls = tf.argmax(prediction, 1)
 
 with tf.name_scope('Cross_entropy'):
     diff = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y)
@@ -88,6 +167,8 @@ with tf.name_scope('AdamOptimizer'):
 with tf.name_scope('Accuracy'):
     with tf.name_scope('correct_pred'):
         correct_pred = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
+        # correct_prediction = tf.equal(y_pred_cls, y_true_cls) = correct_pred
+        # y_pred_cls = tf.argmax(y_pred, dimension=1) = tf.argmax(prediction, 1)
     with tf.name_scope('accuracy'):
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
@@ -142,3 +223,5 @@ with tf.Session() as sess:
           "--> tensorboard --logdir=./logs/cnn-1 " \
           "\nThen open http://0.0.0.0:6006/ into your web browser")
 
+#    plot_images(mnist.test.images[:9], cls_trues[0:9])
+    plot_example_errors(sess)
